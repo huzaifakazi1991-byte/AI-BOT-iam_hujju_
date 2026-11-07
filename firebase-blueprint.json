@@ -1,0 +1,541 @@
+{
+  "entities": {
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Synchronized chat and voice transcript message with optional client-side AES-GCM end-to-end encryption.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Sender role in conversation."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16000,
+          "description": "Plaintext or base64 AES-GCM ciphertext content."
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "Initialization vector for AES-GCM encryption when isEncrypted is true."
+        },
+        "isEncrypted": {
+          "type": "boolean",
+          "description": "Whether content is encrypted with user E2EE vault key."
+        },
+        "language": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "ISO language code or language label (including Hindi, Marathi, Urdu, and global languages)."
+        },
+        "skillUsed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Synchronized Hujju skill identifier applied to this turn."
+        },
+        "deviceOrigin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Origin device name in the ecosystem."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of message creation."
+        }
+      },
+      "required": [
+        "role",
+        "content",
+        "iv",
+        "isEncrypted",
+        "language",
+        "skillUsed",
+        "deviceOrigin",
+        "ownerId",
+        "createdAt"
+      ]
+    },
+    "DocumentRecord": {
+      "title": "DocumentRecord",
+      "description": "Analyzed document intelligence record with AI summary, extracted insights, and E2EE support.",
+      "type": "object",
+      "properties": {
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Original filename of the document."
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100,
+          "description": "Document MIME type."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000,
+          "description": "AI-generated executive summary or encrypted ciphertext."
+        },
+        "insights": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000,
+          "description": "Structured key findings and action items."
+        },
+        "suggestions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Intelligent follow-up recommendations."
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "AES-GCM initialization vector."
+        },
+        "isEncrypted": {
+          "type": "boolean",
+          "description": "Whether summary and insights are E2EE encrypted."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the document owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when document was analyzed."
+        }
+      },
+      "required": [
+        "fileName",
+        "mimeType",
+        "summary",
+        "insights",
+        "suggestions",
+        "iv",
+        "isEncrypted",
+        "ownerId",
+        "createdAt"
+      ]
+    },
+    "ProjectItem": {
+      "title": "ProjectItem",
+      "description": "Google AI Studio Workspace project item managed by Hujju.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Project title."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "Project objective or encrypted payload."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planning", "active", "review", "completed"],
+          "description": "Current workflow stage."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Execution priority."
+        },
+        "modelTarget": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Target AI Studio model configuration."
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "AES-GCM initialization vector."
+        },
+        "isEncrypted": {
+          "type": "boolean",
+          "description": "Whether description is E2EE encrypted."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "status",
+        "priority",
+        "modelTarget",
+        "iv",
+        "isEncrypted",
+        "ownerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkspaceNote": {
+      "title": "WorkspaceNote",
+      "description": "Automated or user-created workspace note synchronized across all devices.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Note heading."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000,
+          "description": "Note body or encrypted ciphertext."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["voice-auto", "document-auto", "chat-auto", "manual"],
+          "description": "How Hujju captured the note."
+        },
+        "projectTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Associated workspace project title."
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "AES-GCM initialization vector."
+        },
+        "isEncrypted": {
+          "type": "boolean",
+          "description": "Whether content is E2EE encrypted."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": [
+        "title",
+        "content",
+        "source",
+        "projectTitle",
+        "iv",
+        "isEncrypted",
+        "ownerId",
+        "createdAt"
+      ]
+    },
+    "SkillConfig": {
+      "title": "SkillConfig",
+      "description": "Synchronized Hujju skill module ensuring identical capabilities across mobile, tablet, and desktop.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Human-readable skill name."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["voice", "document", "translation", "workspace", "security"],
+          "description": "Functional domain of the skill."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "What this skill enables Hujju to do."
+        },
+        "instructionDirective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "System instruction directive injected into Hujju across all devices."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this skill is active across the device ecosystem."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "description",
+        "instructionDirective",
+        "enabled",
+        "ownerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DeviceNode": {
+      "title": "DeviceNode",
+      "description": "Registered device in the user cross-platform ecosystem.",
+      "type": "object",
+      "properties": {
+        "deviceName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Display name of the device."
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["Android APK", "Desktop Web", "Mobile PWA", "Tablet OS"],
+          "description": "Operating environment."
+        },
+        "syncState": {
+          "type": "string",
+          "enum": ["synchronized", "offline-cached", "paused"],
+          "description": "Current synchronization status."
+        },
+        "skillHash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Hash of synchronized skill set."
+        },
+        "e2eeReady": {
+          "type": "boolean",
+          "description": "Whether E2EE WebCrypto key is active on this node."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server registration timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server heartbeat timestamp."
+        }
+      },
+      "required": [
+        "deviceName",
+        "platform",
+        "syncState",
+        "skillHash",
+        "e2eeReady",
+        "ownerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SubscriptionRecord": {
+      "title": "SubscriptionRecord",
+      "description": "INR subscription and UPI payment transaction record synchronized across Web, Mobile PWA, and Android APK.",
+      "type": "object",
+      "properties": {
+        "planId": {
+          "type": "string",
+          "enum": ["free", "1m", "3m", "1y"],
+          "description": "Subscription tier identifier."
+        },
+        "planName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Human-readable subscription plan name."
+        },
+        "amountInr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Amount paid in Indian Rupees (INR)."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["INR"],
+          "description": "ISO currency code (INR)."
+        },
+        "merchantUpiId": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "Destination merchant UPI VPA (9975649957@mbk)."
+        },
+        "gateway": {
+          "type": "string",
+          "enum": ["upi_qr_intent", "razorpay", "cashfree", "free_tier"],
+          "description": "Online payment gateway or UPI channel used."
+        },
+        "utrNumber": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 40,
+          "description": "12-digit NPCI UTR or gateway payment reference."
+        },
+        "orderId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64,
+          "description": "Platform order identifier."
+        },
+        "invoiceId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64,
+          "description": "Generated INR tax invoice identifier."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "expired"],
+          "description": "Current entitlement status."
+        },
+        "expiresAtIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40,
+          "description": "ISO 8601 expiration date of the subscription."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the subscriber."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of subscription activation."
+        }
+      },
+      "required": [
+        "planId",
+        "planName",
+        "amountInr",
+        "currency",
+        "merchantUpiId",
+        "gateway",
+        "utrNumber",
+        "orderId",
+        "invoiceId",
+        "status",
+        "expiresAtIso",
+        "ownerId",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ChatMessage"
+      },
+      "description": "Synchronized chat and voice transcripts owned by a specific user."
+    },
+    "/documents/{documentId}": {
+      "schema": {
+        "$ref": "#/entities/DocumentRecord"
+      },
+      "description": "Analyzed documents with extracted summaries, insights, and suggestions."
+    },
+    "/projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/ProjectItem"
+      },
+      "description": "AI Studio workspace projects managed with Hujju."
+    },
+    "/notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/WorkspaceNote"
+      },
+      "description": "Automated and manual workspace notes synced across devices."
+    },
+    "/skills/{skillId}": {
+      "schema": {
+        "$ref": "#/entities/SkillConfig"
+      },
+      "description": "Cross-device skill configurations for Hujju."
+    },
+    "/devices/{deviceId}": {
+      "schema": {
+        "$ref": "#/entities/DeviceNode"
+      },
+      "description": "Registered devices in the user's cross-platform ecosystem."
+    },
+    "/subscriptions/{subscriptionId}": {
+      "schema": {
+        "$ref": "#/entities/SubscriptionRecord"
+      },
+      "description": "Verified INR subscriptions and UPI payment records owned by the user."
+    }
+  }
+}
+

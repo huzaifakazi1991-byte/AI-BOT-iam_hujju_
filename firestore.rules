@@ -1,0 +1,232 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity Blueprint Validation Helpers
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'iv', 'isEncrypted', 'language', 'skillUsed', 'deviceOrigin', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['role', 'content', 'iv', 'isEncrypted', 'language', 'skillUsed', 'deviceOrigin', 'ownerId', 'createdAt']) &&
+        data.role is string && (data.role == 'user' || data.role == 'assistant') &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 16000 &&
+        data.iv is string && data.iv.size() >= 0 && data.iv.size() <= 128 &&
+        data.isEncrypted is bool &&
+        data.language is string && data.language.size() >= 2 && data.language.size() <= 64 &&
+        data.skillUsed is string && data.skillUsed.size() >= 1 && data.skillUsed.size() <= 80 &&
+        data.deviceOrigin is string && data.deviceOrigin.size() >= 1 && data.deviceOrigin.size() <= 80 &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidDocumentRecord(data) {
+      return data.keys().hasAll(['fileName', 'mimeType', 'summary', 'insights', 'suggestions', 'iv', 'isEncrypted', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['fileName', 'mimeType', 'summary', 'insights', 'suggestions', 'iv', 'isEncrypted', 'ownerId', 'createdAt']) &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 200 &&
+        data.mimeType is string && data.mimeType.size() >= 3 && data.mimeType.size() <= 100 &&
+        data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 12000 &&
+        data.insights is string && data.insights.size() >= 1 && data.insights.size() <= 12000 &&
+        data.suggestions is string && data.suggestions.size() >= 1 && data.suggestions.size() <= 8000 &&
+        data.iv is string && data.iv.size() >= 0 && data.iv.size() <= 128 &&
+        data.isEncrypted is bool &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidProjectItem(data) {
+      return data.keys().hasAll(['title', 'description', 'status', 'priority', 'modelTarget', 'iv', 'isEncrypted', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['title', 'description', 'status', 'priority', 'modelTarget', 'iv', 'isEncrypted', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 4000 &&
+        data.status is string && (data.status == 'planning' || data.status == 'active' || data.status == 'review' || data.status == 'completed') &&
+        data.priority is string && (data.priority == 'low' || data.priority == 'medium' || data.priority == 'high' || data.priority == 'critical') &&
+        data.modelTarget is string && data.modelTarget.size() >= 1 && data.modelTarget.size() <= 80 &&
+        data.iv is string && data.iv.size() >= 0 && data.iv.size() <= 128 &&
+        data.isEncrypted is bool &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWorkspaceNote(data) {
+      return data.keys().hasAll(['title', 'content', 'source', 'projectTitle', 'iv', 'isEncrypted', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['title', 'content', 'source', 'projectTitle', 'iv', 'isEncrypted', 'ownerId', 'createdAt']) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 12000 &&
+        data.source is string && (data.source == 'voice-auto' || data.source == 'document-auto' || data.source == 'chat-auto' || data.source == 'manual') &&
+        data.projectTitle is string && data.projectTitle.size() >= 1 && data.projectTitle.size() <= 160 &&
+        data.iv is string && data.iv.size() >= 0 && data.iv.size() <= 128 &&
+        data.isEncrypted is bool &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidSkillConfig(data) {
+      return data.keys().hasAll(['name', 'category', 'description', 'instructionDirective', 'enabled', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'category', 'description', 'instructionDirective', 'enabled', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.category is string && (data.category == 'voice' || data.category == 'document' || data.category == 'translation' || data.category == 'workspace' || data.category == 'security') &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 600 &&
+        data.instructionDirective is string && data.instructionDirective.size() >= 1 && data.instructionDirective.size() <= 2000 &&
+        data.enabled is bool &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDeviceNode(data) {
+      return data.keys().hasAll(['deviceName', 'platform', 'syncState', 'skillHash', 'e2eeReady', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['deviceName', 'platform', 'syncState', 'skillHash', 'e2eeReady', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.deviceName is string && data.deviceName.size() >= 1 && data.deviceName.size() <= 120 &&
+        data.platform is string && (data.platform == 'Android APK' || data.platform == 'Desktop Web' || data.platform == 'Mobile PWA' || data.platform == 'Tablet OS') &&
+        data.syncState is string && (data.syncState == 'synchronized' || data.syncState == 'offline-cached' || data.syncState == 'paused') &&
+        data.skillHash is string && data.skillHash.size() >= 1 && data.skillHash.size() <= 64 &&
+        data.e2eeReady is bool &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSubscriptionRecord(data) {
+      return data.keys().hasAll(['planId', 'planName', 'amountInr', 'currency', 'merchantUpiId', 'gateway', 'utrNumber', 'orderId', 'invoiceId', 'status', 'expiresAtIso', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['planId', 'planName', 'amountInr', 'currency', 'merchantUpiId', 'gateway', 'utrNumber', 'orderId', 'invoiceId', 'status', 'expiresAtIso', 'ownerId', 'createdAt']) &&
+        data.planId is string && (data.planId == 'free' || data.planId == '1m' || data.planId == '3m' || data.planId == '1y') &&
+        data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 80 &&
+        data.amountInr is int && (data.amountInr == 0 || data.amountInr == 299 || data.amountInr == 799 || data.amountInr == 2499) &&
+        data.currency is string && data.currency == 'INR' &&
+        data.merchantUpiId is string && data.merchantUpiId.size() >= 3 && data.merchantUpiId.size() <= 64 &&
+        data.gateway is string && (data.gateway == 'upi_qr_intent' || data.gateway == 'razorpay' || data.gateway == 'cashfree' || data.gateway == 'free_tier') &&
+        data.utrNumber is string && data.utrNumber.size() >= 4 && data.utrNumber.size() <= 40 &&
+        data.orderId is string && data.orderId.size() >= 4 && data.orderId.size() <= 64 &&
+        data.invoiceId is string && data.invoiceId.size() >= 4 && data.invoiceId.size() <= 64 &&
+        data.status is string && (data.status == 'active' || data.status == 'expired') &&
+        data.expiresAtIso is string && data.expiresAtIso.size() >= 10 && data.expiresAtIso.size() <= 40 &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    // 1. Chat Messages Collection
+    match /messages/{messageId} {
+      allow get: if isSignedIn() && isValidId(messageId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(messageId) && isValidChatMessage(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(messageId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 2. Document Records Collection
+    match /documents/{documentId} {
+      allow get: if isSignedIn() && isValidId(documentId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(documentId) && isValidDocumentRecord(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(documentId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 3. AI Studio Workspace Projects Collection
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(projectId) && isValidProjectItem(incoming()) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(projectId) && isValidProjectItem(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        existing().status != 'completed' &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'priority', 'status', 'iv', 'isEncrypted', 'updatedAt'])
+        );
+      allow delete: if isVerifiedUser() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 4. Workspace Notes Collection
+    match /notes/{noteId} {
+      allow get: if isSignedIn() && isValidId(noteId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(noteId) && isValidWorkspaceNote(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(noteId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 5. Synchronized Skills Collection
+    match /skills/{skillId} {
+      allow get: if isSignedIn() && isValidId(skillId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(skillId) && isValidSkillConfig(incoming()) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(skillId) && isValidSkillConfig(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['enabled', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'instructionDirective', 'enabled', 'updatedAt'])
+        );
+      allow delete: if isVerifiedUser() && isValidId(skillId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 6. Device Ecosystem Collection
+    match /devices/{deviceId} {
+      allow get: if isSignedIn() && isValidId(deviceId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(deviceId) && isValidDeviceNode(incoming()) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(deviceId) && isValidDeviceNode(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['syncState', 'skillHash', 'e2eeReady', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['deviceName', 'platform', 'syncState', 'skillHash', 'e2eeReady', 'updatedAt'])
+        );
+      allow delete: if isVerifiedUser() && isValidId(deviceId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 7. INR Subscriptions & UPI Payments Collection
+    match /subscriptions/{subscriptionId} {
+      allow get: if isSignedIn() && isValidId(subscriptionId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(subscriptionId) && isValidSubscriptionRecord(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(subscriptionId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}
+

@@ -1,0 +1,10 @@
+{
+  "name": "Hujju — E2EE Voice, Document & Workspace AI Assistant",
+  "description": "Multilingual AI assistant with real-time Gemini Live voice, document intelligence, AI Studio project & automated note management, cross-device skill synchronization, client-side AES-GCM end-to-end encryption, offline PWA cache, and Android APK packaging support.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

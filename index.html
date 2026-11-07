@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function () {
+        if (window.__VITE_WS_GUARD__) return;
+        window.__VITE_WS_GUARD__ = true;
+        var NativeWS = window.WebSocket;
+        function GuardedWebSocket(url, protocols) {
+          var urlStr = String(url || '');
+          var protoStr = Array.isArray(protocols) ? protocols.join(',') : String(protocols || '');
+          var isViteHmr =
+            protoStr.indexOf('vite-hmr') !== -1 ||
+            protoStr.indexOf('vite-ping') !== -1 ||
+            urlStr.indexOf(':24678') !== -1 ||
+            urlStr.indexOf('__vite_ping') !== -1 ||
+            (urlStr.indexOf('/live') === -1 && protoStr.length > 0 && protoStr.indexOf('vite') !== -1);
+
+          if (!isViteHmr) {
+            return protocols !== undefined
+              ? new NativeWS(url, protocols)
+              : new NativeWS(url);
+          }
+
+          var target = new EventTarget();
+          var stub = Object.create(target);
+          stub.url = urlStr;
+          stub.protocol = protoStr;
+          stub.readyState = 1;
+          stub.bufferedAmount = 0;
+          stub.extensions = '';
+          stub.binaryType = 'blob';
+          stub.CONNECTING = 0;
+          stub.OPEN = 1;
+          stub.CLOSING = 2;
+          stub.CLOSED = 3;
+          stub.send = function () {};
+          stub.close = function () {
+            stub.readyState = 3;
+          };
+          stub.addEventListener = target.addEventListener.bind(target);
+          stub.removeEventListener = target.removeEventListener.bind(target);
+          stub.dispatchEvent = target.dispatchEvent.bind(target);
+
+          setTimeout(function () {
+            var openEvt = new Event('open');
+            if (typeof stub.onopen === 'function') stub.onopen(openEvt);
+            stub.dispatchEvent(openEvt);
+
+            var msgEvt = new MessageEvent('message', {
+              data: JSON.stringify({ type: 'connected' }),
+            });
+            if (typeof stub.onmessage === 'function') stub.onmessage(msgEvt);
+            stub.dispatchEvent(msgEvt);
+          }, 0);
+
+          return stub;
+        }
+        GuardedWebSocket.prototype = NativeWS.prototype;
+        GuardedWebSocket.CONNECTING = NativeWS.CONNECTING;
+        GuardedWebSocket.OPEN = NativeWS.OPEN;
+        GuardedWebSocket.CLOSING = NativeWS.CLOSING;
+        GuardedWebSocket.CLOSED = NativeWS.CLOSED;
+        window.WebSocket = GuardedWebSocket;
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Hujju — E2EE Voice, Document & Workspace AI Assistant</title>
+    <meta name="description" content="Multilingual AI assistant with real-time Gemini Live voice, document intelligence, AI Studio project & automated note management, cross-device skill synchronization, client-side AES-GCM end-to-end encryption, offline PWA cache, and Android APK packaging support." />
+    <meta property="og:title" content="Hujju — E2EE Voice, Document & Workspace AI Assistant" />
+    <meta property="og:description" content="Multilingual AI assistant with real-time Gemini Live voice, document intelligence, AI Studio project & automated note management, cross-device skill synchronization, client-side AES-GCM end-to-end encryption, offline PWA cache, and Android APK packaging support." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0F172A" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hujju" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-[#0B0F19] dark:text-slate-100 antialiased selection:bg-amber-500/20 selection:text-amber-500">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

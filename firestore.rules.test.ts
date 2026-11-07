@@ -1,0 +1,205 @@
+/**
+ * Hardened Security Rules Test Suite for Hujju
+ * Verifies that all Dirty Dozen adversarial payloads return PERMISSION_DENIED.
+ */
+
+export interface DirtyPayloadTest {
+  id: number;
+  name: string;
+  collection: string;
+  docId: string;
+  operation: 'create' | 'update' | 'get' | 'list';
+  authUid: string;
+  emailVerified: boolean;
+  payload?: Record<string, unknown>;
+  expectedResult: 'PERMISSION_DENIED';
+}
+
+export const DIRTY_DOZEN_TESTS: DirtyPayloadTest[] = [
+  {
+    id: 1,
+    name: 'Identity Spoofing on Create',
+    collection: 'messages',
+    docId: 'msg_1',
+    operation: 'create',
+    authUid: 'attacker_uid',
+    emailVerified: true,
+    payload: {
+      role: 'user',
+      content: 'Spoofed message',
+      iv: '',
+      isEncrypted: false,
+      language: 'en',
+      skillUsed: 'general',
+      deviceOrigin: 'Desktop Web',
+      ownerId: 'victim_uid',
+      createdAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 2,
+    name: 'Unverified Email Write',
+    collection: 'projects',
+    docId: 'proj_1',
+    operation: 'create',
+    authUid: 'user_1',
+    emailVerified: false,
+    payload: {
+      title: 'Project Alpha',
+      description: 'Valid description',
+      status: 'active',
+      priority: 'high',
+      modelTarget: 'gemini-3.8-flash',
+      iv: '',
+      isEncrypted: false,
+      ownerId: 'user_1',
+      createdAt: 'SERVER_TIMESTAMP',
+      updatedAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 3,
+    name: 'Shadow Field Injection on Create',
+    collection: 'notes',
+    docId: 'note_1',
+    operation: 'create',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      title: 'Meeting Note',
+      content: 'Summary of action items',
+      source: 'voice-auto',
+      projectTitle: 'General',
+      iv: '',
+      isEncrypted: false,
+      ownerId: 'user_1',
+      createdAt: 'SERVER_TIMESTAMP',
+      isAdminOverride: true,
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 4,
+    name: 'Shadow Field Injection on Update',
+    collection: 'skills',
+    docId: 'skill_1',
+    operation: 'update',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      enabled: false,
+      hiddenBackdoor: 'true',
+      updatedAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 5,
+    name: 'Value Poisoning on Update',
+    collection: 'projects',
+    docId: 'proj_1',
+    operation: 'update',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      status: 'hacked_status',
+      updatedAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 6,
+    name: 'Terminal State Bypass on Completed Project',
+    collection: 'projects',
+    docId: 'proj_completed',
+    operation: 'update',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      status: 'active',
+      updatedAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 7,
+    name: 'Timestamp Forgery on Create',
+    collection: 'documents',
+    docId: 'doc_1',
+    operation: 'create',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      fileName: 'report.pdf',
+      mimeType: 'application/pdf',
+      summary: 'Summary',
+      insights: 'Insights',
+      suggestions: 'Suggestions',
+      iv: '',
+      isEncrypted: false,
+      ownerId: 'user_1',
+      createdAt: '2020-01-01T00:00:00Z',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 8,
+    name: 'Immutable Field Mutation on Update',
+    collection: 'devices',
+    docId: 'dev_1',
+    operation: 'update',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      ownerId: 'other_user',
+      updatedAt: 'SERVER_TIMESTAMP',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 9,
+    name: 'Path ID Poisoning',
+    collection: 'messages',
+    docId: 'invalid$id!@#',
+    operation: 'create',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {},
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 10,
+    name: 'Denial-of-Wallet Oversized Payload',
+    collection: 'messages',
+    docId: 'msg_big',
+    operation: 'create',
+    authUid: 'user_1',
+    emailVerified: true,
+    payload: {
+      content: 'x'.repeat(20000),
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 11,
+    name: 'Cross-Tenant Document Read',
+    collection: 'documents',
+    docId: 'doc_victim',
+    operation: 'get',
+    authUid: 'attacker_uid',
+    emailVerified: true,
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 12,
+    name: 'Blanket List Query Scraping',
+    collection: 'notes',
+    docId: '*',
+    operation: 'list',
+    authUid: 'attacker_uid',
+    emailVerified: true,
+    expectedResult: 'PERMISSION_DENIED',
+  },
+];
