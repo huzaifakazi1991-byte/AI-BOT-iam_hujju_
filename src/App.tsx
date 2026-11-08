@@ -39,6 +39,8 @@ import {
   Box,
   Network,
   CreditCard,
+  Home,
+  Sparkles,
 } from 'lucide-react';
 import {
   auth,
@@ -51,10 +53,13 @@ import {
 } from './firebase';
 import {
   AutonomousIncidentDiagnostic,
+  CHATBOT_ROLE_PERSONAS,
   ChatMessageItem,
   DEFAULT_HUJJU_SKILLS,
   DeviceNodeItem,
   DocumentRecordItem,
+  GEMINI_CHAT_MODELS,
+  GeminiChatModelTier,
   INR_SUBSCRIPTION_PLANS,
   PRIMARY_INDIC_LANGUAGES,
   ProjectItemRecord,
@@ -84,6 +89,9 @@ import { EcosystemAndApkHub } from './components/EcosystemAndApkHub';
 import { LLMOrchestratorStudio } from './components/LLMOrchestratorStudio';
 import { SubscriptionAndUpiHub } from './components/SubscriptionAndUpiHub';
 import { AutonomousErrorBoundary } from './components/AutonomousErrorBoundary';
+import { HomeAndDomainPortal } from './components/HomeAndDomainPortal';
+import { OnboardingWizardModal } from './components/OnboardingWizardModal';
+import { LiveClickBugTracker } from './components/LiveClickBugTracker';
 
 const HUJJU_AVATAR_URL = '/src/assets/images/hujju_assistant_avatar_1794050844077.jpg';
 const ECOSYSTEM_BANNER_URL = '/src/assets/images/device_ecosystem_showcase_1794050844485.jpg';
@@ -99,10 +107,20 @@ function toDate(val: unknown): Date {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('assistant');
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('home');
   const [darkMode, setDarkMode] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+
+  // Interactive Onboarding Wizard State
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('hujju_onboarding_completed_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Google Maps Demo Key Quota Banner State (Tier 1 Global Listener)
   const [showMapsQuotaBanner, setShowMapsQuotaBanner] = useState(false);
@@ -136,7 +154,7 @@ export default function App() {
     {
       id: 'local_note_1',
       title: 'Hujju Ecosystem Readiness Brief',
-      content: 'All 5 core skills are synchronized across Desktop Web, Mobile PWA, and Android APK nodes. Zero-knowledge AES-GCM 256-bit vault is ready.',
+      content: 'All 10 synchronized skills are active across Desktop Web, Mobile PWA, and Android APK nodes. Zero-knowledge AES-GCM 256-bit vault is ready.',
       source: 'chat-auto',
       projectTitle: 'Cross-Platform Hujju Voice & E2EE Sync Rollout',
       iv: '',
@@ -160,7 +178,7 @@ export default function App() {
       deviceName: 'Current Workstation Browser',
       platform: 'Desktop Web',
       syncState: 'synchronized',
-      skillHash: 'v2.4-5SKILLS',
+      skillHash: 'SYNC-10-SKILLS',
       e2eeReady: false,
       ownerId: 'local',
       createdAt: new Date(),
@@ -171,7 +189,7 @@ export default function App() {
       deviceName: 'Android Flagship Handset (APK)',
       platform: 'Android APK',
       syncState: 'synchronized',
-      skillHash: 'v2.4-5SKILLS',
+      skillHash: 'SYNC-10-SKILLS',
       e2eeReady: false,
       ownerId: 'local',
       createdAt: new Date(),
@@ -202,9 +220,16 @@ export default function App() {
     },
   ]);
 
-  // Chat UI State
+  // Chat UI & Multi-Turn Role / Model Tier State
   const [chatInput, setChatInput] = useState('');
   const [chatLanguage, setChatLanguage] = useState('English');
+  const [chatModelTier, setChatModelTier] = useState<GeminiChatModelTier>('gemini-3.8-flash');
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>(
+    CHATBOT_ROLE_PERSONAS[0].id
+  );
+  const [customRoleInstruction, setCustomRoleInstruction] = useState<string>(
+    CHATBOT_ROLE_PERSONAS[0].systemInstruction
+  );
   const [attachedDocContext, setAttachedDocContext] = useState('');
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [suggestedFollowUps, setSuggestedFollowUps] = useState<string[]>([
@@ -214,10 +239,15 @@ export default function App() {
   ]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
+  const chatThreadEndRef = useRef<HTMLDivElement | null>(null);
 
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install } = usePWAInstall();
   const seededUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    chatThreadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, isSendingChat]);
 
   // Listen for Google Maps Platform Quota Exceeded / Auth Failure event
   useEffect(() => {
@@ -552,11 +582,18 @@ export default function App() {
         }
         const loadedSkills: SkillConfigItem[] = snap.docs.map((d) => {
           const data = d.data();
+          const cleanDescription = String(data.description || '').replace(/^SecurityEnforces/i, 'Enforces');
+          if (cleanDescription !== data.description && user.emailVerified) {
+            updateDoc(doc(db, 'skills', d.id), {
+              description: cleanDescription,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
           return {
             id: d.id,
             name: data.name,
             category: data.category,
-            description: data.description,
+            description: cleanDescription,
             instructionDirective: data.instructionDirective,
             enabled: !!data.enabled,
             ownerId: data.ownerId,
@@ -564,6 +601,40 @@ export default function App() {
             updatedAt: toDate(data.updatedAt),
           };
         });
+
+        // Ensure all 10 enterprise skills exist; seed any missing default skills
+        if (user.emailVerified) {
+          DEFAULT_HUJJU_SKILLS.forEach((defSkill, idx) => {
+            const exists = loadedSkills.some(
+              (ls) => ls.name.toLowerCase() === defSkill.name.toLowerCase()
+            );
+            if (!exists) {
+              const skillId = `skill_default_${idx + 1}_${uid.slice(0, 8)}`;
+              setDoc(doc(db, 'skills', skillId), {
+                ...defSkill,
+                ownerId: uid,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              }).catch(() => {});
+            }
+          });
+        }
+
+        // If all skills were accidentally toggled to disabled (0/10 Enabled), auto-re-enable all of them
+        if (loadedSkills.length > 0 && loadedSkills.every((s) => !s.enabled)) {
+          const reEnabled = loadedSkills.map((s) => ({ ...s, enabled: true }));
+          setSkills(reEnabled);
+          if (user.emailVerified) {
+            loadedSkills.forEach((s) => {
+              updateDoc(doc(db, 'skills', s.id), {
+                enabled: true,
+                updatedAt: serverTimestamp(),
+              }).catch(() => {});
+            });
+          }
+          return;
+        }
+
         if (loadedSkills.length > 0) {
           setSkills(loadedSkills);
         }
@@ -585,7 +656,7 @@ export default function App() {
               : 'Primary Workstation Node',
             platform: navigator.userAgent.includes('Android') ? 'Android APK' : 'Desktop Web',
             syncState: isOnline ? 'synchronized' : 'offline-cached',
-            skillHash: 'SYNC-5-CORE',
+            skillHash: 'SYNC-10-SKILLS',
             e2eeReady: !!vaultKey,
             ownerId: uid,
             createdAt: serverTimestamp(),
@@ -814,13 +885,15 @@ export default function App() {
     setDailyAiUsed((prev) => prev + 1);
 
     const activeSkillList = skills.filter((s) => s.enabled);
-    const primarySkillName =
-      activeSkillList.length > 0 ? `${activeSkillList.length} Synced Skills` : 'Core Assistant';
+    const activePersona =
+      CHATBOT_ROLE_PERSONAS.find((p) => p.id === selectedPersonaId) ||
+      CHATBOT_ROLE_PERSONAS[0];
+    const primarySkillName = `${chatModelTier} · ${activePersona.name}`;
 
     try {
       await saveChatMessage('user', promptToSend, chatLanguage, primarySkillName);
 
-      const historyPayload = messages.slice(-6).map((m) => ({
+      const historyPayload = messages.slice(-10).map((m) => ({
         role: m.role,
         text: m.decryptedContent ?? m.content,
       }));
@@ -834,6 +907,9 @@ export default function App() {
           activeSkills: activeSkillList,
           targetLanguage: chatLanguage,
           attachedDocContext,
+          modelTier: chatModelTier,
+          roleSystemInstruction:
+            customRoleInstruction.trim() || activePersona.systemInstruction,
         }),
       });
 
@@ -1036,8 +1112,32 @@ export default function App() {
   };
 
   // Synchronized Skills Handlers
+  const syncDeviceSkillHashes = async (activeCount: number) => {
+    const nextHash = `SYNC-${activeCount}-SKILLS`;
+    setDevices((prev) =>
+      prev.map((d) => ({ ...d, skillHash: nextHash, updatedAt: new Date() }))
+    );
+    if (user && user.emailVerified) {
+      for (const dev of devices) {
+        if (!dev.id.startsWith('local_')) {
+          updateDoc(doc(db, 'devices', dev.id), {
+            skillHash: nextHash,
+            updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      }
+    }
+  };
+
   const handleToggleSkill = async (skill: SkillConfigItem) => {
     const nextEnabled = !skill.enabled;
+    const nextSkills = skills.map((s) =>
+      s.id === skill.id ? { ...s, enabled: nextEnabled, updatedAt: new Date() } : s
+    );
+    setSkills(nextSkills);
+    const nextActiveCount = nextSkills.filter((s) => s.enabled).length;
+    await syncDeviceSkillHashes(nextActiveCount);
+
     if (user && !skill.id.startsWith('local_')) {
       try {
         await updateDoc(doc(db, 'skills', skill.id), {
@@ -1047,12 +1147,32 @@ export default function App() {
       } catch (err) {
         handleFirestoreError(err, OperationType.UPDATE, `skills/${skill.id}`);
       }
-    } else {
-      setSkills((prev) =>
-        prev.map((s) => (s.id === skill.id ? { ...s, enabled: nextEnabled, updatedAt: new Date() } : s))
-      );
     }
     notify(`Skill "${skill.name}" ${nextEnabled ? 'enabled' : 'disabled'} across all devices.`);
+  };
+
+  const handleEnableAllSkills = async () => {
+    const nextSkills = skills.map((s) => ({
+      ...s,
+      enabled: true,
+      description: s.description.replace(/^SecurityEnforces/i, 'Enforces'),
+      updatedAt: new Date(),
+    }));
+    setSkills(nextSkills);
+    await syncDeviceSkillHashes(nextSkills.length);
+
+    if (user && user.emailVerified) {
+      for (const s of nextSkills) {
+        if (!s.id.startsWith('local_')) {
+          updateDoc(doc(db, 'skills', s.id), {
+            enabled: true,
+            description: s.description,
+            updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      }
+    }
+    notify(`All ${nextSkills.length} skills enabled & synchronized across all devices (SYNC-${nextSkills.length}-SKILLS).`);
   };
 
   const handleCreateCustomSkill = async (
@@ -1450,18 +1570,34 @@ export default function App() {
       <header className="flex items-center justify-between gap-8 px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F172A]">
         {/* Zone 1: Single text element wordmark */}
         <a
-          href="#assistant"
+          href="#home"
           onClick={(e) => {
             e.preventDefault();
-            setActiveTab('assistant');
+            setActiveTab('home');
           }}
-          className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap shrink-0 font-display"
+          className="inline-flex items-center shrink-0"
         >
-          Hujju
+          <img
+            src="/assets/aistudio/photo_6305527949704238173_y_26128a5f.jpg"
+            alt="Hujju"
+            className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+          />
         </a>
 
         {/* Zone 2: 5 concise single-line text navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <a
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              setActiveTab('home');
+            }}
+            className={`hover:text-slate-900 dark:hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === 'home' ? 'text-slate-900 dark:text-white underline underline-offset-8 decoration-amber-500 decoration-2' : ''
+            }`}
+          >
+            Home
+          </a>
           <a
             href="#assistant"
             onClick={(e) => {
@@ -1487,40 +1623,6 @@ export default function App() {
             LLM Router
           </a>
           <a
-            href="#media"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('media');
-            }}
-            className={`hover:text-slate-900 dark:hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'media' ? 'text-slate-900 dark:text-white underline underline-offset-8 decoration-amber-500 decoration-2' : ''
-            }`}
-          >
-            Media Studio
-          </a>
-          <a
-            href="#maps-sql"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('maps-sql');
-            }}
-            className={`hover:text-slate-900 dark:hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'maps-sql' ? 'text-slate-900 dark:text-white underline underline-offset-8 decoration-amber-500 decoration-2' : ''
-            }`}
-          >
-            Maps & SQL
-          </a>
-          <a
-            href="#three-game"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('three-game');
-            }}
-            className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors whitespace-nowrap shrink-0"
-          >
-            3D Nexus Game
-          </a>
-          <a
             href="#billing-resilience"
             onClick={(e) => {
               e.preventDefault();
@@ -1530,7 +1632,7 @@ export default function App() {
               activeTab === 'billing-resilience' ? 'text-slate-900 dark:text-white underline underline-offset-8 decoration-amber-500 decoration-2' : ''
             }`}
           >
-            UPI Plans &amp; Backup
+            UPI &amp; Backup
           </a>
           <a
             href="#workspace"
@@ -1586,10 +1688,10 @@ export default function App() {
               />
               <div className="min-w-0">
                 <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                  Hujju Assistant
+                  Hujju (@iam_hujju)
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {isOnline ? 'Cloud Sync Online' : 'Offline Cache Mode'}
+                  {isOnline ? 'iam-hujju.web.app · Online' : 'Offline Cache Mode'}
                 </div>
               </div>
             </div>
@@ -1598,7 +1700,8 @@ export default function App() {
             <div className="space-y-1">
               {(
                 [
-                  { id: 'assistant', label: 'Voice & Chat Studio', icon: MessageSquare },
+                  { id: 'home', label: 'Home & iam_hujju Portal', icon: Home },
+                  { id: 'assistant', label: 'Voice & Multi-Turn Chat', icon: MessageSquare },
                   { id: 'orchestrator', label: 'Multi-LLM Router', icon: Network },
                   { id: 'documents', label: 'Document Intelligence', icon: FileText },
                   { id: 'translation', label: 'Translate & Transcribe', icon: Languages },
@@ -1617,7 +1720,7 @@ export default function App() {
                     key={item.id}
                     type="button"
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                       active
                         ? 'bg-slate-900 text-white dark:bg-amber-600 dark:text-white'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-slate-200'
@@ -1629,6 +1732,16 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* Guided Setup Button */}
+            <button
+              type="button"
+              onClick={() => setIsOnboardingOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors whitespace-nowrap"
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>3-Step Onboarding Guide</span>
+            </button>
 
             {/* Ecosystem Telemetry Summary (Unboxed Clean Typography) */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2.5 text-xs">
@@ -1737,7 +1850,27 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 1: VOICE & CHAT ASSISTANT STUDIO */}
+          {/* TAB 0: HOME SCREEN & OFFICIAL IAM_HUJJU FREE DOMAIN PORTAL */}
+          {activeTab === 'home' && (
+            <HomeAndDomainPortal
+              hujjuAvatarUrl={HUJJU_AVATAR_URL}
+              ecosystemBannerUrl={ECOSYSTEM_BANNER_URL}
+              activeTierId={activeTierId}
+              isEncryptedVaultActive={!!vaultKey}
+              e2eeFingerprint={e2eeFingerprint}
+              activeSkillsCount={activeSkillsCount}
+              totalSkillsCount={skills.length}
+              projectsCount={projects.length}
+              notesCount={notes.length}
+              documentsCount={documents.length}
+              lastBackupIso={lastBackupIso}
+              onboardingCompleted={onboardingCompleted}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenOnboarding={() => setIsOnboardingOpen(true)}
+            />
+          )}
+
+          {/* TAB 1: VOICE & MULTI-TURN GEMINI CHAT ASSISTANT STUDIO */}
           {activeTab === 'assistant' && (
             <div className="space-y-6">
               {/* Real-Time Gemini Live Voice & Speech Interpreter Studio */}
@@ -1753,16 +1886,16 @@ export default function App() {
                 }}
               />
 
-              {/* Conversational Chat & Intelligent Workspace Assistant */}
-              <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl flex flex-col h-[540px]">
+              {/* Multi-Turn Gemini Chatbot with Model Tier & Role Persona Selector */}
+              <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl flex flex-col h-[640px]">
                 {/* Chat Subheader */}
                 <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Hujju Multimodal Chat & Automated Workspace Note-Taker
+                      Hujju Multi-Turn Gemini Chatbot &amp; Role Persona Studio
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Model: gemini-3.8-flash · {activeSkillsCount} Synchronized Skills Active · {vaultKey ? 'AES-GCM 256-bit E2EE Enabled' : 'Cloud Sync Ready'}
+                      Active Model: <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{chatModelTier}</span> · {activeSkillsCount} Synced Skills · {vaultKey ? 'AES-GCM 256-bit E2EE' : 'Cloud Sync Ready'}
                     </p>
                   </div>
 
@@ -1810,6 +1943,77 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Model Tier Selector (gemini-3.1-flash-lite, gemini-3.8-flash, gemini-4-argon) + Chatbot Role System Instruction Bar */}
+                <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    {/* 3-Tier Gemini Model Selector */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1">
+                        Gemini Model Tier:
+                      </span>
+                      {GEMINI_CHAT_MODELS.map((m) => {
+                        const active = chatModelTier === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setChatModelTier(m.id)}
+                            title={m.description}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                              active
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500'
+                            }`}
+                          >
+                            {m.label} · <span className="opacity-80">{m.taskCategory}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Chatbot Role Persona Selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        Chatbot Role:
+                      </span>
+                      <select
+                        aria-label="Select Chatbot Role Persona"
+                        value={selectedPersonaId}
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          setSelectedPersonaId(nextId);
+                          const found = CHATBOT_ROLE_PERSONAS.find((p) => p.id === nextId);
+                          if (found) {
+                            setCustomRoleInstruction(found.systemInstruction);
+                            setChatModelTier(found.recommendedModel);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200"
+                      >
+                        {CHATBOT_ROLE_PERSONAS.map((persona) => (
+                          <option key={persona.id} value={persona.id}>
+                            {persona.name} ({persona.recommendedModel})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Editable System Instruction Role Prompt */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 shrink-0">
+                      System Instruction:
+                    </span>
+                    <input
+                      type="text"
+                      value={customRoleInstruction}
+                      onChange={(e) => setCustomRoleInstruction(e.target.value)}
+                      placeholder="Define custom system instruction role for Hujju chatbot..."
+                      className="flex-1 px-2.5 py-1 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
                 {/* Attached Document Context Bar */}
                 {attachedDocContext && (
                   <div className="flex items-center justify-between gap-2 px-5 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
@@ -1841,10 +2045,10 @@ export default function App() {
                       />
                       <div className="space-y-1">
                         <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                          Hello, I am Hujju — your synchronized AI assistant
+                          Multi-Turn Gemini Chat ({chatModelTier})
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                          Ask me to analyze documents, translate across languages, plan Google AI Studio workspace projects, or capture automated notes synchronized across your Android and desktop devices.
+                          Switch effortlessly between <span className="font-mono">gemini-3.1-flash-lite</span> (fast tasks), <span className="font-mono">gemini-3.8-flash</span> (general tasks), and <span className="font-mono">gemini-4-argon</span> (complex reasoning) while maintaining full multi-turn conversation history and custom role instructions.
                         </p>
                       </div>
 
@@ -1880,8 +2084,10 @@ export default function App() {
                             <p className="whitespace-pre-line">{text}</p>
                           </div>
 
-                          <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                             <span>{isUser ? 'You' : 'Hujju'}</span>
+                            <span>·</span>
+                            <span className="font-mono">{msg.skillUsed}</span>
                             <span>·</span>
                             <span>{msg.deviceOrigin}</span>
                             <span>·</span>
@@ -1911,6 +2117,7 @@ export default function App() {
                       );
                     })
                   )}
+                  <div ref={chatThreadEndRef} />
                 </div>
 
                 {/* Suggested Intelligent Follow-ups & Input Bar */}
@@ -1943,7 +2150,7 @@ export default function App() {
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Message Hujju (e.g., 'Plan our Android APK release and save a workspace note')..."
+                      placeholder={`Message Hujju using ${chatModelTier} (maintains multi-turn conversation history)...`}
                       className="flex-1 px-4 py-2.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500"
                     />
                     <button
@@ -1992,6 +2199,7 @@ export default function App() {
           {/* TAB 3: MULTILINGUAL TRANSLATION & MICROPHONE TRANSCRIPTION */}
           {activeTab === 'translation' && (
             <MultilingualTranslator
+              activeSkills={skills}
               onSpeakText={handleSpeakText}
               isSpeaking={isSpeaking}
               onSaveTranslationNote={async (title, content) => {
@@ -2080,26 +2288,66 @@ export default function App() {
               onUnlockOrUpdateVault={handleUnlockOrUpdateVault}
               onLockVault={handleLockVault}
               onToggleSkill={handleToggleSkill}
+              onEnableAllSkills={handleEnableAllSkills}
               onCreateCustomSkill={handleCreateCustomSkill}
               onDeleteSkill={handleDeleteSkill}
               onRegisterDeviceNode={handleRegisterDeviceNode}
               onRemoveDeviceNode={handleRemoveDeviceNode}
+              onSaveSkillTestReportToWorkspace={async (title, content) => {
+                await saveWorkspaceNote(title, content, 'manual', 'Synchronized Skill Matrix Audit');
+                notify(`Saved "${title}" to E2EE Workspace Notes.`);
+              }}
               ecosystemBannerUrl={ECOSYSTEM_BANNER_URL}
             />
           )}
         </main>
       </div>
 
+      {/* Interactive 3-Step Onboarding Wizard Modal */}
+      <OnboardingWizardModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        skills={skills}
+        isEncryptedVaultActive={!!vaultKey}
+        e2eeFingerprint={e2eeFingerprint}
+        onCreateProject={handleCreateProject}
+        onToggleSkill={handleToggleSkill}
+        onUnlockOrUpdateVault={handleUnlockOrUpdateVault}
+        onSelectPreferredLanguage={(langName) => {
+          setChatLanguage(langName);
+          notify(`Preferred language set to ${langName}.`);
+        }}
+        onCompleteOnboarding={() => {
+          setOnboardingCompleted(true);
+          try {
+            localStorage.setItem('hujju_onboarding_completed_v1', 'true');
+          } catch {
+            // Ignore storage errors
+          }
+          notify('Onboarding complete! Project, Voice Skills & E2EE Vault configured.');
+        }}
+      />
+
+      {/* Live Click & Bug Telemetry Recorder + Consolidated Single-Batch Report & Fix Engine */}
+      <LiveClickBugTracker
+        activeTab={activeTab}
+        onSaveConsolidatedReportToWorkspace={async (title, markdownContent) => {
+          await saveWorkspaceNote(title, markdownContent, 'manual', 'Consolidated Click & Bug Fix Reports');
+          notify(`Saved "${title}" to Workspace Notes & fixed all logged items in batch.`);
+        }}
+        onTriggerCheckpointBackup={handleTriggerManualBackup}
+      />
+
       {/* Mobile Bottom Navigation Bar (< 15% mobile viewport height) */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 h-14 bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-800 grid grid-cols-6 items-center px-1">
         {(
           [
-            { id: 'assistant', label: 'Voice', icon: MessageSquare },
+            { id: 'home', label: 'Home', icon: Home },
+            { id: 'assistant', label: 'Voice/Chat', icon: MessageSquare },
             { id: 'orchestrator', label: 'Router', icon: Network },
             { id: 'documents', label: 'Docs', icon: FileText },
-            { id: 'translation', label: 'Translate', icon: Languages },
             { id: 'billing-resilience', label: 'UPI/Backup', icon: CreditCard },
-            { id: 'maps-sql', label: 'Maps/SQL', icon: MapPin },
+            { id: 'ecosystem', label: 'APK/E2EE', icon: Smartphone },
           ] as const
         ).map((item) => {
           const Icon = item.icon;

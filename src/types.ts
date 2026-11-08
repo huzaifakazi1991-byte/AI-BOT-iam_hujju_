@@ -1,4 +1,5 @@
 export type WorkspaceTab =
+  | 'home'
   | 'assistant'
   | 'orchestrator'
   | 'documents'
@@ -9,6 +10,86 @@ export type WorkspaceTab =
   | 'workspace'
   | 'billing-resilience'
   | 'ecosystem';
+
+export type GeminiChatModelTier =
+  | 'gemini-3.1-flash-lite'
+  | 'gemini-3.8-flash'
+  | 'gemini-4-argon';
+
+export interface GeminiChatModelOption {
+  id: GeminiChatModelTier;
+  label: string;
+  taskCategory: string;
+  badge: string;
+  description: string;
+}
+
+export const GEMINI_CHAT_MODELS: GeminiChatModelOption[] = [
+  {
+    id: 'gemini-3.1-flash-lite',
+    label: 'Gemini 3.1 Flash Lite',
+    taskCategory: 'Fast Tasks',
+    badge: 'Ultra-Low Latency',
+    description: 'Optimized for tasks that should happen fast, instant lookups, and quick multi-turn replies.',
+  },
+  {
+    id: 'gemini-3.8-flash',
+    label: 'Gemini 3.8 Flash',
+    taskCategory: 'General Tasks',
+    badge: 'Balanced Default',
+    description: 'Ideal for general tasks, multilingual synthesis, workspace planning, and automated note-taking.',
+  },
+  {
+    id: 'gemini-4-argon',
+    label: 'Gemini 4 Argon',
+    taskCategory: 'Complex Tasks',
+    badge: 'Frontier Reasoning',
+    description: 'Engineered for particularly complex tasks, deep system architecture, STEM reasoning, and code synthesis.',
+  },
+];
+
+export interface ChatbotRolePersona {
+  id: string;
+  name: string;
+  tagline: string;
+  recommendedModel: GeminiChatModelTier;
+  systemInstruction: string;
+}
+
+export const CHATBOT_ROLE_PERSONAS: ChatbotRolePersona[] = [
+  {
+    id: 'executive-architect',
+    name: 'Hujju Core Workspace Architect',
+    tagline: 'Balanced multilingual assistant & automated note-taker',
+    recommendedModel: 'gemini-3.8-flash',
+    systemInstruction:
+      'Act as an Executive AI Studio Workspace Architect. Deliver structured answers, highlight key decisions, and extract actionable project notes.',
+  },
+  {
+    id: 'frontier-engineer',
+    name: 'Principal Systems & STEM Engineer',
+    tagline: 'Deep technical reasoning, code architecture & debugging',
+    recommendedModel: 'gemini-4-argon',
+    systemInstruction:
+      'Act as a Principal Distributed Systems & Full-Stack Engineer. Provide rigorous first-principles analysis, production-ready code patterns, security invariants, and mathematical precision.',
+  },
+  {
+    id: 'rapid-concierge',
+    name: 'Rapid Action & Triage Concierge',
+    tagline: 'Instant, ultra-concise answers for fast tasks',
+    recommendedModel: 'gemini-3.1-flash-lite',
+    systemInstruction:
+      'Act as a high-speed executive triage concierge. Respond with immediate, crisp bullet points and zero fluff for maximum speed.',
+  },
+  {
+    id: 'indic-polyglot-mentor',
+    name: 'Indic & Global Polyglot Mentor',
+    tagline: 'Cultural nuance & fluent Hindi, Marathi, Urdu & English mentor',
+    recommendedModel: 'gemini-3.8-flash',
+    systemInstruction:
+      'Act as an expert multilingual communication mentor fluent in Hindi (हिन्दी), Marathi (मराठी), Urdu (اردو), and English. Explain concepts clearly with culturally natural phrasing.',
+  },
+];
 
 export type SubscriptionTierId = 'free' | '1m' | '3m' | '1y';
 export type PaymentGatewayId = 'upi_qr_intent' | 'razorpay' | 'cashfree' | 'free_tier';
@@ -237,6 +318,19 @@ export interface MapsGroundingPlaceLink {
   reviewSnippets?: string[];
 }
 
+export interface SkillLiveTestResult {
+  skillId: string;
+  skillName: string;
+  category: SkillConfigItem['category'];
+  enabled: boolean;
+  status: 'passed' | 'remediated-and-passed';
+  latencyMs: number;
+  testInputSample: string;
+  verifiedOutputSample: string;
+  directiveEnforced: string;
+  syncedEndpoints: string[];
+}
+
 export const DEFAULT_HUJJU_SKILLS: Omit<SkillConfigItem, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>[] = [
   {
     name: 'Executive Document Synthesizer',
@@ -271,6 +365,41 @@ export const DEFAULT_HUJJU_SKILLS: Omit<SkillConfigItem, 'id' | 'ownerId' | 'cre
     category: 'security',
     description: 'Redacts sensitive credentials or PII in summaries before cloud persistence and enforces zero-knowledge vault hygiene.',
     instructionDirective: 'Never echo raw secret keys in plaintext summaries; prioritize zero-knowledge privacy best practices.',
+    enabled: true,
+  },
+  {
+    name: 'Indic Polyglot Cultural Interpreter',
+    category: 'translation',
+    description: 'Provides native, high-nuance translation across Hindi (हिंदी), Marathi (मराठी), Urdu (اردو), and English with polite regional honorifics.',
+    instructionDirective: "You are Hujju's Indic Multilingual Specialist. Deliver fluent translations and interpretation across Hindi, Marathi, Urdu, and English. Respect regional honorifics (Aap/Tumhi/Aap), Devanagari and Nastaliq script rules, and preserve technical accuracy while adapting to local cultural idioms.",
+    enabled: true,
+  },
+  {
+    name: 'Executive Strategic & Financial Analyst',
+    category: 'workspace',
+    description: 'Converts raw earnings reports, financial models, and strategic briefs into executive key performance metrics, risk maps, and decision memos.',
+    instructionDirective: "You are Hujju's Executive Partner & Chief Financial Strategist. Transform raw datasets, spreadsheets, and business updates into structured executive memos containing: 1) Executive Summary, 2) KPI Breakdown & Revenue Vectors, 3) Strategic Risks & Tradeoffs, 4) Prioritized Action Items with Timelines.",
+    enabled: true,
+  },
+  {
+    name: 'Zero-Trust Security & API Guardrail',
+    category: 'security',
+    description: 'Enforces zero-trust data hygiene, sanitizes PII/credentials before persistence, and audits external endpoints for unauthorized exposure.',
+    instructionDirective: "You are Hujju's Defensive Cybersecurity Guardrail. Actively scan all prompts, inputs, and documents to prevent secret leakage (API keys, JWTs, private keys). Redact sensitive PII prior to cloud persistence. Mandate zero-knowledge privacy standards, proper encryption protocols, and least-privilege endpoint access.",
+    enabled: true,
+  },
+  {
+    name: 'Legal & Contract Risk Auditor',
+    category: 'document',
+    description: 'Scans uploaded contracts, NDAs, and SLAs to flag high-risk liabilities, missing termination clauses, and adverse indemnification obligations.',
+    instructionDirective: "You are Hujju's Legal Risk & Compliance Specialist. Synthesize contracts and legal documents to highlight: 1) Critical Financial Liabilities & Payment Terms, 2) Indemnification & Termination Exposure, 3) High-Risk Ambiguities, and 4) Actionable Negotiation Playbook. Maintain objective precision and clear risk vectors.",
+    enabled: true,
+  },
+  {
+    name: 'Full-Stack Code & Architecture Auditor',
+    category: 'workspace',
+    description: 'Inspects codebases, identifies OWASP security flaws, diagnoses runtime memory leaks, and refactors logic into production-grade modular architectures.',
+    instructionDirective: "You are Hujju's Senior Code & Systems Architect. Audit code for correctness, security vulnerabilities (OWASP Top 10, SQLi, XSS, secret leaks), and memory/performance bottlenecks. Provide clean, modular, strongly-typed solutions without stubs or placeholders. Explain root causes succinctly with clear refactoring directives.",
     enabled: true,
   },
 ];

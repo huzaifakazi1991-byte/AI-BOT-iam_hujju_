@@ -1,14 +1,16 @@
 import React, { useRef, useState } from 'react';
 import { Languages, Volume2, ArrowLeftRight, Mic, Square, Upload, Save, Copy, Check } from 'lucide-react';
-import { PRIMARY_INDIC_LANGUAGES, SUPPORTED_LANGUAGES } from '../types';
+import { PRIMARY_INDIC_LANGUAGES, SkillConfigItem, SUPPORTED_LANGUAGES } from '../types';
 
 interface MultilingualTranslatorProps {
+  activeSkills?: SkillConfigItem[];
   onSpeakText: (text: string) => Promise<void>;
   isSpeaking: boolean;
   onSaveTranslationNote: (title: string, content: string) => Promise<void>;
 }
 
 export const MultilingualTranslator: React.FC<MultilingualTranslatorProps> = ({
+  activeSkills = [],
   onSpeakText,
   isSpeaking,
   onSaveTranslationNote,
@@ -49,6 +51,7 @@ export const MultilingualTranslator: React.FC<MultilingualTranslatorProps> = ({
           sourceLanguage: sourceLang,
           targetLanguage: targetLang,
           tone,
+          activeSkills: activeSkills.filter((s) => s.enabled),
         }),
       });
       const data = await res.json();
@@ -205,24 +208,36 @@ export const MultilingualTranslator: React.FC<MultilingualTranslatorProps> = ({
       </div>
 
       {/* Quick Target Language Switcher for Hindi, Marathi, Urdu & English */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">
-          Quick Target Language:
-        </span>
-        {PRIMARY_INDIC_LANGUAGES.map((lang) => (
-          <button
-            key={lang.code}
-            type="button"
-            onClick={() => setTargetLang(lang.name)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-              targetLang === lang.name
-                ? 'bg-amber-600 text-white border-amber-600'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-amber-500'
-            }`}
-          >
-            {lang.shortLabel}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">
+            Quick Target Language:
+          </span>
+          {PRIMARY_INDIC_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={() => setTargetLang(lang.name)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                targetLang === lang.name
+                  ? 'bg-amber-600 text-white border-amber-600'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-amber-500'
+              }`}
+            >
+              {lang.shortLabel}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
+            Enforced Translation Skills:
+          </span>{' '}
+          {activeSkills
+            .filter((s) => s.enabled && s.category === 'translation')
+            .map((s) => s.name)
+            .join(' · ') || 'Polyglot Engine'}
+        </div>
       </div>
 
       <form onSubmit={handleTranslate} className="space-y-4">

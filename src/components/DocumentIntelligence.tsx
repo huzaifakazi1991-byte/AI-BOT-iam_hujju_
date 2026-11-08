@@ -180,6 +180,16 @@ export const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
             </span>
           </div>
 
+          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
+            <span className="font-semibold text-amber-600 dark:text-amber-400">
+              Enforced Document &amp; Security Skills ({activeSkills.filter((s) => s.enabled && (s.category === 'document' || s.category === 'security')).length}):
+            </span>{' '}
+            {activeSkills
+              .filter((s) => s.enabled && (s.category === 'document' || s.category === 'security'))
+              .map((s) => s.name)
+              .join(' · ') || 'Default Synthesis'}
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               Upload Document (PDF, PNG/JPG, Markdown, CSV, TXT)
